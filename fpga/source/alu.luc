@@ -1,0 +1,58 @@
+module alu (
+    input alufn[6],
+    input inputStringA[16],
+    input inputStringB[16],
+    output out[16],
+    output z,
+    output v,
+    output n
+  ) {
+  
+  adder adderUnit;
+  boolean booleanUnit;
+  shifter shifterUnit;
+  compare compareUnit;
+  sig z_sig;
+  sig v_sig;
+  sig n_sig;
+
+
+  always {
+    adderUnit.a = inputStringA;
+    adderUnit.b = inputStringB;
+    adderUnit.alufn = alufn;
+    z_sig = adderUnit.z;
+    v_sig = adderUnit.v;
+    n_sig = adderUnit.n;
+
+    z = z_sig;
+    v = v_sig;
+    n = n_sig;
+    
+    booleanUnit.a = inputStringA;
+    booleanUnit.b = inputStringB;
+    booleanUnit.alufn = alufn;
+    
+    shifterUnit.a = inputStringA;
+    shifterUnit.b = inputStringB;
+    shifterUnit.alufn = alufn;
+    
+    compareUnit.v = v_sig;
+    compareUnit.n = n_sig;
+    compareUnit.z = z_sig;
+    compareUnit.alufn = alufn;
+    
+    case (alufn[5:4]) { // bit match [0][5:4]
+      default: // Adder Subtractor
+        out = adderUnit.out;
+      b10: // Shifter
+        out = shifterUnit.out;
+      b01: // Boolean
+        out = booleanUnit.out;
+      b11: // Comparer
+        out = compareUnit.out;
+        
+    }
+  }
+
+}

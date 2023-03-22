@@ -1,0 +1,104 @@
+.include "lab2checkoff.jsim"
+.include "nominal.jsim"
+
+* 2-input nand: inputs are a and b, output is z
+.subckt nand2 a b z
+MPD1 z a 1 0 NENH sw=8 sl=1
+MPD2 1 b 0 0 NENH sw=8 sl=1
+MPU1 z a vdd vdd PENH sw=9 sl=1
+MPU2 z b vdd vdd PENH sw=9 sl=1
+.ends
+
+* inverter: input is a, output is z
+.subckt inv a z
+MPD1 z a 0 0 NENH sw=16 sl=1
+MPU1 z a vdd vdd PENH sw=16 sl=1
+.ends
+
+* 2-input nor: inputs are a and b, output is z
+.subckt nor2 a b z
+MPD1 z a 0 0 NENH sw=8 sl=1
+MPD2 z b 0 0 NENH sw=8 sl=1
+MPU1 z a 1 vdd PENH sw=9 sl=1
+MPU2 1 b vdd vdd PENH sw=9 sl=1
+.ends
+
+* 2-input xor: input is a and b, output is z
+.subckt xor2 a b z
+* Build your own xor gate here
+* BEGIN ANSWER
+
+*nor gate, a,b input, y output, 1 MPU1 & MPU2 series
+Xnor1 a b y nor2
+
+*y output from nor
+MPD3 z a MPD34 0 NENH sw=2 sl=1
+MPD4 MPD34 b 0 0 NENH sw=2 sl=1
+MPD5 z y 0 0 NENH sw=2 sl=1
+MPU3 MPU34 a vdd vdd PENH sw=4 sl=1
+MPU4 MPU34 b vdd vdd PENH sw=4 sl=1
+MPU5 z y MPU34 vdd PENH sw=4 sl=1
+
+*END ANSWER
+.ends
+
+* 2-input xnor: input is a and b, output is z
+.subckt xnor2 a b z
+* Build your own xnor gate here
+* BEGIN ANSWER
+
+*nand gate, a,b input, y output, 1 MPD1 & MPD2 series
+Xnand1 a b y nand2
+
+*y output from nand
+MPD3 z y MPD45 0 NENH sw=2 sl=1
+MPD4 MPD45 b 0 0 NENH sw=2 sl=1
+MPD5 MPD45 a 0 0 NENH sw=2 sl=1
+MPU3 z y vdd vdd PENH sw=4 sl=1
+MPU4 MPU45 b vdd vdd PENH sw=4 sl=1
+MPU5 z a MPU45 vdd PENH sw=4 sl=1
+
+*END ANSWER
+.ends
+
+
+* FA: 1-bit Full Adder circuit
+* Input: a, b, ci 
+* Output: s, co
+.subckt FA a b ci s co
+* write your FA circuitory here
+* BEGIN ANSWER
+
+* circutory for s
+Xx1 a b y xor2
+Xx2 y ci s xor2
+
+*circuitory for co
+ 
+
+Xnn1 a b i nand2
+Xinv1 i d inv
+
+Xnn2 a ci j nand2
+Xinv2 j e inv
+
+Xnn3 b ci k nand2
+Xinv3 k f inv
+
+Xno1 d e l nor2
+Xinv4 l m inv
+
+Xno2 f m n nor2
+Xinv5 n co inv
+
+*END ANSWER
+.ends
+
+
+.subckt ADDER4 a3 a2 a1 a0 b3 b2 b1 b0 s4 s3 s2 s1 s0
+Xbit0 a0 b0 0 s0 c0 FA
+Xbit1 a1 b1 c0 s1 c1 FA
+Xbit2 a2 b2 c1 s2 c2 FA
+Xbit3 a3 b3 c2 s3 s4 FA
+.ends
+

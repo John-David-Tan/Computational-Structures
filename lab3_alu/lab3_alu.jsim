@@ -1,0 +1,186 @@
+.include "nominal.jsim"
+.include "stdcell.jsim"
+.include "lab3_mult.jsim"
+* .include "lab3_testadder.jsim"
+* .include "lab3_testcompare.jsim"
+* .include "lab3_testboolean.jsim"
+* .include "lab3_testshifter.jsim"
+* .include "lab3_testmultiply.jsim"
+ .include "lab3checkoff.jsim"
+
+** JSIM ERRORS
+*Error 1: NODE N IS NOT CONNECTED TO ANY OUTPUT
+*- Declared a node in your .subckt header but have not instantiated them in your implementation
+*ERROR 2: NODE N IS CONNECTED TO MORE THAN ONE NON-TROSTATE OUTPUT. SEE DEVICES XADDER.XZ_UNIT. X INVERTER AND GND_POWER_SUPPLY.
+*- Declared output node N twice in your .subckt
+* JSIM does not know which N value to take
+
+
+**********************************
+**** FA circuit ******************
+.subckt FA a b cin s co
+* Paste your answer from Lab 2 here
+* Replace the gates using stdcell gates instead of your custom gates
+* BEGIN ANSWER
+
+* S unit is A xor B xor Cin
+Xs1 a b s1 xor2
+* a xor gate witha and b as input, and s1 as output
+Xs2 s1 cin s xor2
+
+*circuitory for co
+Xc1 a b co1 nand2
+Xc2 a cin co2 nand2
+Xc3 b cin co3 nand2
+Xc4 co1 co2 co3 co nand3
+
+* circutory for s
+*Xx1 a b y xor2
+*Xx2 y cin s xor2
+
+*circuitory for co
+*Xnn1 a b i nand2
+*Xinv1 i d inverter
+
+*Xnn2 a cin j nand2
+*Xinv2 j e inverter
+
+*Xnn3 b cin k nand2
+*Xinv3 k f inverter
+
+*Xno1 d e l nor2
+*Xinv4 l m inverter
+
+*Xno2 f m n nor2
+*Xinv5 n co inverter
+
+* END ANSWER
+.ends
+
+**********************************
+**** Adder32 circuit *************
+.subckt adder32 ALUFN[0] a[31:0] b[31:0] s[31:0] z v n
+* BEGIN ANSWER
+
+* XOR unit for b
+Xxor_b b[31:0] ALUFN0#32 xb[31:0] xor2
+
+* .subsckt FA a b cin s co
+* Xbit1 a1 b1 c0 s1 c1 FA
+* Xbit2 a2 b2 c1 s2 c2 FA
+* Xbit3 a3 b3 c2 s3 c3 FA
+* ...
+* Xbit31 a31 b31 c30 s31 c31 FA
+
+Xbit0 a0 xb0 ALUFN0 s0 c0 FA
+Xbit_therest a[31:1] xb[31:1] c[30:0] s[31:1] c[31:1] FA
+
+
+*The Z unit
+Xlayer_1 s[31:16] s[15:0] layer_1[15:0] or2
+Xlayer_2 layer_1[15:8] layer_1[7:0] layer_2[7:0] or2
+Xlayer_3 layer_2[7:4] layer_2[3:0] layer_3[3:0] or2
+Xlayer_4 layer_3[3:2] layer_3[1:0] layer_4[1:0] or2
+Xz_inv layer_40 layer_41 z_inv or2
+xz_unit z_inv z inverter
+
+*The V unit
+Xnots31 s31 nots31 inverter
+Xnotxb31 xb31 notxb31 inverter
+Xnotxa31 a31 nota31 inverter
+Xnegnegpos nota31 notxb31 s31 negnegpos and3
+Xposposneg  a31 xb31 nots31 posposneg and3
+Xv_unit negnegpos posposneg V or2
+
+*The N unit 
+Xbuf s31 n buffer
+
+* END ANSWER
+.ends
+*********************************
+
+
+**********************************
+**** Compare32 circuit ***********
+.subckt compare32 ALUFN[2:1] z v n cmp[31:0]
+* BEGIN ANSWER
+* a few lines
+
+.connect 0 cmp[31:1]
+Xinput1 n v out1 xor2 
+Xinput3 out1 z out3 or2
+
+Xmux_compare ALUFN[2] ALUFN[1] 0 out1 z out3 cmp[0] mux4 
+
+
+
+* END ANSWER
+.ends
+**********************************
+
+**********************************
+**** Boolean32 circuit ***********
+.subckt boole32 ALUFN[3:0] A[31:0] B[31:0] boole[31:0]
+* BEGIN ANSWER
+
+Xmux_bool a[31:0] b[31:0] ALUFN0#32 ALUFN1#32 ALUFN2#32 ALUFN3#32 boole[31:0] mux4
+
+* END ANSWER
+.ends
+**********************************
+
+**********************************
+**** Shifter32 circuit ***********
+.subckt shift32 ALUFN[1:0] A[31:0] B[4:0] shift[31:0]
+* BEGIN ANSWER
+*18 lines 5,5,5, 2-3 lines to join the output
+
+*shift left
+X16left B[4]#32 a[31:0] a[15:0] 0#16 wl[31:0] mux2
+X8left B[3]#32 wl[31:0] wl[23:0] 0#8 xl[31:0] mux2
+X4left B[2]#32 xl[31:0] xl[27:0] 0#4 yl[31:0] mux2
+X2left B[1]#32 yl[31:0] yl[29:0] 0#2 zl[31:0] mux2
+X1left B[0]#32 zl[31:0] zl[30:0] 0 shl[31:0] mux2
+
+
+*shift right
+X16right B[4]#32 a[31:0] 0#16 a[31:16] wr[31:0] mux2
+X8right B[3]#32 wr[31:0] 0#8 wr[31:8] xr[31:0] mux2
+X4right B[2]#32 xr[31:0] 0#4 xr[31:4] yr[31:0] mux2
+X2right B[1]#32 yr[31:0] 0#2 yr[31:2] zr[31:0] mux2
+X1right B[0]#32 zr[31:0] 0 zr[31:1] shr[31:0] mux2
+
+*shift right arithmetic
+X16aright B[4]#32 a[31:0] a[31]#16 a[31:16] war[31:0] mux2
+X8aright B[3]#32 war[31:0] a[31]#8 war[31:8] xar[31:0] mux2
+X4aright B[2]#32 xar[31:0] a[31]#4 xar[31:4] yar[31:0] mux2
+X2aright B[1]#32 yar[31:0] a[31]#2 yar[31:2] zar[31:0] mux2
+X1aright B[0]#32 zar[31:0] a[31] zar[31:1] sra[31:0] mux2
+
+*combine
+
+Xcombine ALUFN[1]#32 ALUFN[0]#32 shl[31:0] 0#32 shr[31:0] sra[31:0] shift[31:0] mux4
+
+
+* END ANSWER
+.ends
+**********************************
+
+**********************************
+**** ALU32 circuit ***************
+.subckt alu ALUFN[5:0] A[31:0] B[31:0] alu[31:0] z v n
+* BEGIN ANSWER
+*use a mux
+Xmult32 A[31:0] B[31:0] P[31:0] mult32
+Xshift32 ALUFN[1:0] A[31:0] B[4:0] shift[31:0] shift32
+Xboole32 ALUFN[3:0] A[31:0] B[31:0] boole[31:0] boole32
+Xadder32 ALUFN[0] a[31:0] b[31:0] s[31:0] z v n adder32
+Xcompare32 ALUFN[2:1] z v n cmp[31:0] compare32
+
+xminimux ALUFN[1]#32 s[31:0] P[31:0] o[31:0] mux2 
+
+Xfinalmux ALUFN[5]#32 ALUFN[4]#32 o[31:0] shift[31:0] boole[31:0] cmp[31:0] alu[31:0] mux4
+
+* END ANSWER
+.ends
+**********************************

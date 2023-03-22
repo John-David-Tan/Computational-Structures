@@ -1,0 +1,137 @@
+module au_top (
+    input clk,              // 100MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input usb_rx,           // USB->Serial input
+    output usb_tx,          // USB->Serial output
+    output io_led [3][8],   // LEDs on IO Shield
+    output io_seg [8],      // 7-segment LEDs on IO Shield
+    output io_sel [4],      // Digit select on IO Shield
+    input io_button [5],    // 5 buttons on IO Shield
+    input io_dip [3][8]     // DIP switches on IO Shield
+  ) {
+  
+  
+  sig aVal[16];
+  sig bVal[16];
+ 
+  sig rst;                  // reset signal
+  alu aluComputer;
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    
+  }
+  dff inputStringA[16](#INIT(0), .clk(clk), .rst(rst)); // Register, to store A!
+  dff inputStringB[16](#INIT(0), .clk(clk), .rst(rst)); // Register, to store B!
+  fsm state(.clk(clk), .rst(rst)) = {STOREA, STOREB, COMPUTE};
+  
+  // This area is a one-time trigger for storing 16-bit values A and B
+  button_conditioner storage(.clk(clk));
+  edge_detector storageEdge(#RISE(1), #FALL(0),.clk(clk)); //detect on rising edge only
+  
+  // This area is a one-time trigger for 'locking in' the choice of computation we want
+  // Since the [0] array of dipswitches are used for ALUFN, we can do, for this, a simple one button.
+  // When button is pressed => Analyse dipswitches' permutation for corresponding ALUFN.
+  
+  button_conditioner analyseALUFN(.clk(clk));
+  edge_detector analyseALUFNEdge(#RISE(1), #FALL(0),.clk(clk)); //detect on rising edge only
+  
+  always {
+    io_led = 3x{{8h00}};    // turn LEDs off
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    usb_tx = usb_rx;        // loop serial port
+    led = 8h00;             // turn LEDs off
+    io_seg = 8hff;          // turn segments off
+    io_sel = 4hf;           // select no digits
+    aVal = 8h0;
+    bVal = 8h0;
+    
+    aluComputer.inputStringA = inputStringA.q;
+    aluComputer.inputStringB = inputStringB.q;
+    aluComputer.alufn = io_dip[0][7:2];
+    
+    // Storage of A and B, upon press - io_button[0] and io_button[1]
+    storage.in = io_button[0]; // We use the first buttons to signal a store
+    storageEdge.in = storage.out;
+      
+    // Linking of 'computation' to io_button[2]
+    analyseALUFN.in = io_button[1]; // We use the second button to signal a compute
+    analyseALUFNEdge.in = analyseALUFN.out;
+    
+    case (state.q) {
+      state.STOREA: // Rightmost 2 LED: 1 0
+        io_led[0][0] = 0;
+        io_led[0][1] = 1; // Rightmost-1 LED: When 1 (lit up) => STATE STOREA
+        io_led[2] = io_dip[2]; // Optional, mirroring what is up or down on the dipswitches' section.
+        io_led[1] = io_dip[1]; // Optional, mirroring what is up or down on the dipswitches' section.
+        
+        
+        if (storageEdge.out) { // This block occurs if rising edge is detected. (Button is pressed)
+          // Here we want to store input string A
+          state.d = state.STOREB; // Transit to state STOREB. This is because STOREA state is done here.
+          inputStringA.d = c{io_dip[2],io_dip[1]}; // Concatenate, left-most 2 arrays of dipswitch = 16 bits.
+          }
+        
+        else if (analyseALUFNEdge.out) {
+          // If at this state, the 'compute' button is pressed, we can jump to the 'compute' state -> 
+          // which is state.COMPUTE.
+          
+          // We would prefer that the user only does this, at this state, if inputStringA and inputStringB 
+          // are already set.
+          
+          // Logically, this button should not be pressed if the user has not yet set the values for
+          // inputStringA and inputStringB
+          state.d = state.COMPUTE;
+          
+          }
+
+        else { // None of the two buttons are pressed => we interpret as no change in state yet.
+               // User may still be manually setting the dipswitches.
+          state.d = state.STOREA; // Then, we will loop this state, in a way, pending for a button press.
+        
+          }
+        
+      
+      state.STOREB: // Rightmost 2 LED: 0 1
+        io_led[0][1] = 0;
+        io_led[0][0] = 1; // Rightmost LED: When 1 (lit up) => STATE STOREB
+        io_led[2] = io_dip[2]; // Optional, mirroring what is up or down on the dipswitches' section.
+        io_led[1] = io_dip[1]; // Optional, mirroring what is up or down on the dipswitches' section.
+        
+        
+        if (storageEdge.out) { // This block occurs if rising edge is detected. (Button is pressed)
+          // Here we want to store input string A
+          state.d = state.STOREA; // Transit to state STOREA. This is because STOREB state is done here.
+          inputStringB.d = c{io_dip[2],io_dip[1]}; // Concatenate, left-most 2 arrays of dipswitch = 16 bits. 
+          }
+        
+        else { // None of the two buttons are pressed => we interpret as no change in state yet.
+               // User may still be manually setting the dipswitches.
+          state.d = state.STOREB; // Then, we will loop this state, in a way, pending for a button press.
+        
+          }
+              
+        
+      state.COMPUTE: // Rightmost 2 LED: 1 1
+        io_led[0][0] = 1;
+        io_led[0][1] = 1;
+        io_led[0][7:5] = c{aluComputer.z,aluComputer.v,aluComputer.n};
+        io_led[2] = aluComputer.out[15:8];
+        io_led[1] = aluComputer.out[7:0];
+        
+        if (analyseALUFNEdge.out) { // Button is pressed => Resets machine.
+          state.d = state.STOREA; // Reset back to state STOREA.
+          inputStringA.d = 16b0; // Reset to 0
+          inputStringB.d = 16b0; // Reset to 0
+        }
+        else { // None of the two buttons are pressed => we interpret as no change in state yet.
+               // User may still be manually setting the dipswitches.
+          state.d = state.COMPUTE; // Then, we will loop this state, in a way, pending for a button press.
+        }
+
+  }
+}
+}

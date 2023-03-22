@@ -1,0 +1,33 @@
+module adder (
+    input a[16],  
+    input b[16],
+    input alufn[6],
+    output out[16],
+    output cout,
+    output z[1],
+    output v[1],
+    output n[1]
+  ) 
+{
+
+full_adder fulladder[16];//
+  sig s[16];
+always {
+  fulladder.x = a;
+  fulladder.y = b;
+  fulladder.cin[0] = alufn[0];
+  fulladder.cin[15:1] = fulladder.cout[14:0];
+  s = fulladder.s;
+	  cout = fulladder.cout[15];
+  s = b000000000000000;
+  case(alufn[0]){
+  0: s = a+b;
+  1: s = a-b; 
+    }
+    n = s[15];
+    v = (a[15] & (b[15] ^ alufn[0]) & !fulladder.s[15]) | (!a[15] & !(b[15] ^ alufn[0]) & fulladder.s[15]); 
+    z = ~|s;
+    out = s;
+
+  }
+}
